@@ -13,6 +13,7 @@ import json
 import time
 import winsound
 import requests
+import subprocess
 from io import BytesIO
 from win11toast import toast
 
@@ -41,6 +42,15 @@ CACHE_DIR = os.path.join(get_base_path(), "thumbnail_cache")
 if not os.path.exists(CACHE_DIR):
     os.makedirs(CACHE_DIR)
     print(f"[DEBUG] Cache directory created: {CACHE_DIR}")
+
+def check_ffmpeg():
+    try:
+        subprocess.run(["ffmpeg", "-version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print("[DEBUG] ffmpeg found.")
+        return True
+    except FileNotFoundError:
+        print("[WARNING] ffmpeg not found. High quality and merging will not work.")
+        return False
 
 class ScrollableFrame(ttk.Frame):
     def __init__(self, container, *args, **kwargs):
@@ -130,6 +140,7 @@ class DownloadCard(ttk.Frame):
         self.progress_bar.grid_remove()
         self.info_label.configure(text="Concluído", foreground="#4caf50")
         
+        # Re-pack buttons to ensure correct order
         self.btn_copy.pack_forget()
         self.btn_delete.pack_forget()
         
@@ -138,7 +149,15 @@ class DownloadCard(ttk.Frame):
         self.btn_copy.pack(side="left", padx=2)
         self.btn_delete.pack(side="left", padx=2)
         
-        print(f"[DEBUG] Card '{self.info.get('title')}' finished state. Path: {self.file_path}")
+        # Check if file exists to enable/disable buttons
+        if self.file_path and os.path.exists(self.file_path):
+            self.btn_open.configure(state="normal")
+            self.btn_folder.configure(state="normal")
+        else:
+            self.btn_open.configure(state="disabled")
+            self.btn_folder.configure(state="disabled")
+        
+        print(f"[DEBUG] Card '{self.info.get('title')}' in finished state. Path: {self.file_path}")
 
     def update_progress(self, d):
         if d['status'] == 'downloading':
@@ -148,10 +167,11 @@ class DownloadCard(ttk.Frame):
             speed = d.get('_speed_str', '0MB/s')
             self.info_label.configure(text=f"{percent} - {speed}")
         elif d['status'] == 'finished':
-            print(f"[DEBUG] Hook 'finished' for {self.info.get('title')}")
+            # This is intermediate for merging sometimes, final check done in run_download
+            pass
 
     def open_file(self):
-        print(f"[DEBUG] Attempting to open file: {self.file_path}")
+        print(f"[DEBUG] Opening file: {self.file_path}")
         if self.file_path and os.path.exists(self.file_path):
             os.startfile(self.file_path)
         else:
@@ -159,7 +179,7 @@ class DownloadCard(ttk.Frame):
             messagebox.showwarning("Arquivo não encontrado", f"O arquivo não foi encontrado:\n{self.file_path}")
 
     def open_folder(self):
-        print(f"[DEBUG] Attempting to open folder for: {self.file_path}")
+        print(f"[DEBUG] Opening folder for: {self.file_path}")
         if self.file_path:
             folder = os.path.dirname(self.file_path)
             if os.path.exists(folder):
@@ -184,6 +204,10 @@ class EasyDLPApp:
         self.root.title("EasyDLP")
         self.root.geometry("1100x700")
         
+        self.has_ffmpeg = check_ffmpeg()
+        if not self.has_ffmpeg:
+            self.root.after(1000, lambda: messagebox.showwarning("Faltando ffmpeg", "O ffmpeg não foi detectado no sistema.\nIsso impedirá o download de altas qualidades e a conversão para MP3."))
+
         self.apply_theme()
         self.load_icons()
         self.setup_styles()
@@ -220,9 +244,7 @@ class EasyDLPApp:
         self.style.configure("Odd.TLabel", background=bg_odd)
 
     def setup_ui(self):
-        self.root.columnconfigure(0, weight=0)
-        self.root.columnconfigure(1, weight=1)
-        self.root.rowconfigure(0, weight=1)
+        self.root.columnconfigure(0, weight=0); self.root.columnconfigure(1, weight=1); self.root.rowconfigure(0, weight=1)
         
         # Left Panel (Config)
         self.left_frame = ttk.Frame(self.root, padding=20)
@@ -230,26 +252,20 @@ class EasyDLPApp:
         ttk.Label(self.left_frame, text="Configurações", font=("Segoe UI", 18, "bold")).pack(pady=(0, 20), anchor="w")
         
         # URL
-        u_frame = ttk.Frame(self.left_frame)
-        u_frame.pack(fill="x", pady=(0, 15))
+        u_frame = ttk.Frame(self.left_frame); u_frame.pack(fill="x", pady=(0, 15))
         ttk.Label(u_frame, text="URL do Vídeo/Playlist:").pack(anchor="w")
-        er = ttk.Frame(u_frame)
-        er.pack(fill="x")
-        self.url_entry = ttk.Entry(er)
-        self.url_entry.pack(side="left", fill="x", expand=True)
+        er = ttk.Frame(u_frame); er.pack(fill="x")
+        self.url_entry = ttk.Entry(er); self.url_entry.pack(side="left", fill="x", expand=True)
         ttk.Button(er, text="Colar", command=self.paste_url).pack(side="right", padx=(5, 0))
 
         # F&Q
-        fq = ttk.Frame(self.left_frame)
-        fq.pack(fill="x", pady=(0, 15))
-        f_s = ttk.Frame(fq)
-        f_s.pack(side="left", fill="x", expand=True)
+        fq = ttk.Frame(self.left_frame); fq.pack(fill="x", pady=(0, 15))
+        f_s = ttk.Frame(fq); f_s.pack(side="left", fill="x", expand=True)
         ttk.Label(f_s, text="Formato:").pack(anchor="w")
         self.format_var = tk.StringVar(value=FORMATS[0])
         ttk.Combobox(f_s, values=FORMATS, textvariable=self.format_var, state="readonly").pack(fill="x", padx=(0, 5))
         
-        q_s = ttk.Frame(fq)
-        q_s.pack(side="left", fill="x", expand=True)
+        q_s = ttk.Frame(fq); q_s.pack(side="left", fill="x", expand=True)
         ttk.Label(q_s, text="Qualidade:").pack(anchor="w")
         self.quality_var = tk.StringVar(value=QUALITIES[0])
         ttk.Combobox(q_s, values=QUALITIES, textvariable=self.quality_var, state="readonly").pack(fill="x")
@@ -261,11 +277,9 @@ class EasyDLPApp:
         
         # Destination
         ttk.Label(self.left_frame, text="Destino:").pack(anchor="w")
-        dr = ttk.Frame(self.left_frame)
-        dr.pack(fill="x", pady=(0, 15))
+        dr = ttk.Frame(self.left_frame); dr.pack(fill="x", pady=(0, 15))
         self.dest_var = tk.StringVar(value=os.path.join(os.path.expanduser("~"), "Downloads"))
-        self.dest_entry = ttk.Entry(dr, textvariable=self.dest_var)
-        self.dest_entry.pack(side="left", fill="x", expand=True)
+        self.dest_entry = ttk.Entry(dr, textvariable=self.dest_var); self.dest_entry.pack(side="left", fill="x", expand=True)
         ttk.Button(dr, text="...", width=3, command=self.browse_dest).pack(side="right", padx=(5, 0))
         
         # Post Action
@@ -278,21 +292,15 @@ class EasyDLPApp:
         # Right Panel (Queue)
         self.right_frame = ttk.Frame(self.root, padding=20)
         self.right_frame.grid(row=0, column=1, sticky="nsew")
-        self.right_frame.columnconfigure(0, weight=1)
-        self.right_frame.rowconfigure(1, weight=1)
-        
-        hr = ttk.Frame(self.right_frame)
-        hr.grid(row=0, column=0, sticky="ew", pady=(0, 15))
+        self.right_frame.columnconfigure(0, weight=1); self.right_frame.rowconfigure(1, weight=1)
+        hr = ttk.Frame(self.right_frame); hr.grid(row=0, column=0, sticky="ew", pady=(0, 15))
         ttk.Label(hr, text="Fila de Downloads", font=("Segoe UI", 18, "bold")).pack(side="left")
         ttk.Button(hr, text="Limpar Concluídos", command=self.clear_finished).pack(side="right")
-        
-        self.scroll_frame = ScrollableFrame(self.right_frame)
-        self.scroll_frame.grid(row=1, column=0, sticky="nsew")
+        self.scroll_frame = ScrollableFrame(self.right_frame); self.scroll_frame.grid(row=1, column=0, sticky="nsew")
 
     def paste_url(self):
         try:
-            self.url_entry.delete(0, tk.END)
-            self.url_entry.insert(0, self.root.clipboard_get())
+            self.url_entry.delete(0, tk.END); self.url_entry.insert(0, self.root.clipboard_get())
         except: pass
 
     def browse_dest(self):
@@ -302,7 +310,7 @@ class EasyDLPApp:
     def on_add_click(self):
         u = self.url_entry.get().strip()
         if u:
-            print(f"[DEBUG] Adding URL to processing: {u}")
+            print(f"[DEBUG] Adding URL: {u}")
             threading.Thread(target=self.handle_new_url, args=(u,), daemon=True).start()
 
     def handle_new_url(self, url):
@@ -315,7 +323,7 @@ class EasyDLPApp:
                 else:
                     self.root.after(0, lambda: self.add_single_video(info))
         except Exception as e:
-            print(f"[ERROR] Metadata extraction failed: {e}")
+            print(f"[ERROR] Extraction failed: {e}")
             self.root.after(0, lambda: messagebox.showerror("Erro", str(e)))
 
     def show_playlist_popup(self, info):
@@ -328,7 +336,6 @@ class EasyDLPApp:
     def add_single_video(self, info, from_history=False):
         index = len(self.queue)
         style = "Odd.TFrame" if index % 2 != 0 else "TFrame"
-        
         card = DownloadCard(self.scroll_frame.scrollable_window, info, self, index, style=style)
         if index % 2 != 0:
             for child in card.winfo_children():
@@ -341,7 +348,6 @@ class EasyDLPApp:
 
         card.pack(fill="x", pady=0, padx=5)
         self.queue.append(card)
-        
         url = info.get('webpage_url') or info.get('url')
         threading.Thread(target=self.fetch_card_details, args=(card, url, info), daemon=True).start()
         
@@ -357,7 +363,6 @@ class EasyDLPApp:
     def fetch_card_details(self, card, url, info_input):
         vid_id = info_input.get('id')
         cache_path = os.path.join(CACHE_DIR, f"{vid_id}.jpg") if vid_id else None
-        
         if cache_path and os.path.exists(cache_path):
             self.render_thumb(card, cache_path)
         
@@ -368,7 +373,6 @@ class EasyDLPApp:
                 card.info.update(info)
                 self.root.after(0, lambda: card.title_label.configure(text=info.get('title', 'Sem título')))
                 self.root.after(0, lambda: card.channel_label.configure(text=info.get('uploader', 'Canal desconhecido')))
-                
                 thumb_url = info.get('thumbnail')
                 if thumb_url and cache_path and not os.path.exists(cache_path):
                     resp = requests.get(thumb_url, timeout=10)
@@ -378,8 +382,7 @@ class EasyDLPApp:
 
     def render_thumb(self, card, path):
         try:
-            img = Image.open(path)
-            img.thumbnail((120, 68))
+            img = Image.open(path); img.thumbnail((120, 68))
             photo = ImageTk.PhotoImage(img)
             self.root.after(0, lambda: self.update_card_thumb(card, photo))
         except: pass
@@ -403,7 +406,7 @@ class EasyDLPApp:
             c = t['card']
             if c.winfo_exists():
                 c.status = 'downloading'
-                print(f"[DEBUG] Starting download for: {c.info.get('title')}")
+                print(f"[DEBUG] Processing download: {c.info.get('title')}")
                 self.run_download(t)
                 if self.download_queue.empty(): self.root.after(0, self.on_all_finished)
             self.download_queue.task_done()
@@ -426,17 +429,23 @@ class EasyDLPApp:
         
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                # Use extract_info with download=True to get the final metadata including merged file path
                 final_info = ydl.extract_info(url, download=True)
-                card.file_path = final_info.get('_filename') or ydl.prepare_filename(final_info)
-                print(f"[DEBUG] Download finished. Captured path: {card.file_path}")
+                
+                # Proactive capture of the merged/final filename
+                if 'requested_downloads' in final_info:
+                    card.file_path = final_info['requested_downloads'][0].get('filepath')
+                
+                if not card.file_path:
+                    card.file_path = final_info.get('_filename') or ydl.prepare_filename(final_info)
+                
+                print(f"[DEBUG] Download finished. Final path: {card.file_path}")
                 self.root.after(0, card.show_finished_state)
         except Exception as e:
-            print(f"[ERROR] Download failed: {e}")
+            print(f"[ERROR] Download error: {e}")
             self.root.after(0, lambda: card.info_label.configure(text=f"Erro: {str(e)}", foreground="#f44336"))
 
     def on_all_finished(self):
-        print("[DEBUG] Queue empty. All downloads finished.")
+        print("[DEBUG] Queue complete.")
         toast("EasyDLP", "Todos os downloads foram concluídos!")
         winsound.MessageBeep(winsound.MB_ICONASTERISK)
         if self.post_var.get() == "Abrir Pasta": os.startfile(self.dest_var.get())
@@ -446,52 +455,38 @@ class EasyDLPApp:
         if os.path.exists(CONFIG_PATH):
             try:
                 with open(CONFIG_PATH, 'r') as f:
-                    d = json.load(f)
-                    self.format_var.set(d.get('format', FORMATS[0]))
-                    self.quality_var.set(d.get('quality', QUALITIES[0]))
-                    self.codec_var.set(d.get('codec', CODECS[0]))
-                    self.dest_var.set(d.get('dest', self.dest_var.get()))
-                    self.post_var.set(d.get('post_action', POST_ACTIONS[0]))
+                    d = json.load(f); self.format_var.set(d.get('format', FORMATS[0])); self.quality_var.set(d.get('quality', QUALITIES[0])); self.codec_var.set(d.get('codec', CODECS[0])); self.dest_var.set(d.get('dest', self.dest_var.get())); self.post_var.set(d.get('post_action', POST_ACTIONS[0]))
                     print("[DEBUG] Settings loaded.")
             except: pass
         if os.path.exists(HISTORY_PATH):
             try:
                 with open(HISTORY_PATH, 'r') as f:
                     history = json.load(f)
-                    print(f"[DEBUG] Loading {len(history)} items from history.")
+                    print(f"[DEBUG] Restoring {len(history)} items.")
                     for i in history: self.add_single_video(i, from_history=True)
             except: pass
 
     def on_closing(self):
-        print("[DEBUG] App closing. Saving settings and history.")
+        print("[DEBUG] Closing. Saving history.")
         settings = {'format': self.format_var.get(), 'quality': self.quality_var.get(), 'codec': self.codec_var.get(), 'dest': self.dest_var.get(), 'post_action': self.post_var.get()}
         try:
             with open(CONFIG_PATH, 'w') as f: json.dump(settings, f)
             history = []
             for c in self.queue:
                 if c.winfo_exists():
-                    item = c.info.copy()
-                    item['status'] = c.status
-                    item['file_path'] = c.file_path
-                    history.append(item)
+                    item = c.info.copy(); item['status'] = c.status; item['file_path'] = c.file_path; history.append(item)
             with open(HISTORY_PATH, 'w') as f: json.dump(history, f)
         except: pass
         self.root.destroy()
 
 class PlaylistPopup(tk.Toplevel):
     def __init__(self, parent, title="Playlist Detectada"):
-        super().__init__(parent)
-        self.title(title)
-        self.geometry("400x180")
-        self.resizable(False, False)
-        self.result = None
-        self.label = ttk.Label(self, text="Este link contém uma playlist.\nO que deseja fazer?", font=("Segoe UI", 11), justify="center")
-        self.label.pack(pady=20)
-        btn_frame = ttk.Frame(self)
-        btn_frame.pack(pady=10)
-        ttk.Button(btn_frame, text="Playlist Completa", style="Accent.TButton", command=self.on_playlist).pack(side="left", padx=10)
-        ttk.Button(btn_frame, text="Apenas um Vídeo", command=self.on_single).pack(side="left", padx=10)
-        ttk.Button(btn_frame, text="Cancelar", command=self.on_cancel).pack(side="left", padx=10)
+        super().__init__(parent); self.title(title); self.geometry("400x180"); self.resizable(False, False); self.result = None
+        ttk.Label(self, text="Este link contém uma playlist.\nO que deseja fazer?", font=("Segoe UI", 11), justify="center").pack(pady=20)
+        btn_f = ttk.Frame(self); btn_f.pack(pady=10)
+        ttk.Button(btn_f, text="Playlist Completa", style="Accent.TButton", command=self.on_playlist).pack(side="left", padx=10)
+        ttk.Button(btn_f, text="Apenas um Vídeo", command=self.on_single).pack(side="left", padx=10)
+        ttk.Button(btn_f, text="Cancelar", command=self.on_cancel).pack(side="left", padx=10)
         self.transient(parent); self.grab_set(); self.protocol("WM_DELETE_WINDOW", self.on_cancel); self.wait_window()
     def on_playlist(self): self.result = "playlist"; self.destroy()
     def on_single(self): self.result = "single"; self.destroy()

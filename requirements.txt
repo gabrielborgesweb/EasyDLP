@@ -6,3 +6,4 @@ tksvg
 Pillow
 pyinstaller
 requests
+quickjs
