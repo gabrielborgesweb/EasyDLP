@@ -42,15 +42,39 @@ def get_base_path():
         return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.abspath(__file__))
 
+def get_data_path():
+    app_name = "EasyDLP"
+    if sys.platform == "win32":
+        base = os.getenv("APPDATA", os.path.expanduser("~"))
+    else:
+        base = os.path.expanduser("~/.config")
 
-CONFIG_PATH = os.path.join(get_base_path(), "userpref.json")
-HISTORY_PATH = os.path.join(get_base_path(), "history.json")
-CACHE_DIR = os.path.join(get_base_path(), "thumbnail_cache")
+    path = os.path.join(base, app_name)
+    if not os.path.exists(path):
+        os.makedirs(path)
+    return path
+
+DATA_DIR = get_data_path()
+CONFIG_PATH = os.path.join(DATA_DIR, "userpref.json")
+HISTORY_PATH = os.path.join(DATA_DIR, "history.json")
+CACHE_DIR = os.path.join(DATA_DIR, "thumbnail_cache")
 
 if not os.path.exists(CACHE_DIR):
     os.makedirs(CACHE_DIR)
     print(f"[DEBUG] Cache directory created: {CACHE_DIR}")
 
+def cleanup_cache():
+    now = time.time()
+    retention = 72 * 3600 # 72 hours
+    try:
+        for f in os.listdir(CACHE_DIR):
+            f_path = os.path.join(CACHE_DIR, f)
+            if os.path.isfile(f_path):
+                if os.stat(f_path).st_mtime < now - retention:
+                    os.remove(f_path)
+                    print(f"[DEBUG] Cache removed: {f}")
+    except Exception as e:
+        print(f"[ERROR] Cache cleanup failed: {e}")
 
 def check_ffmpeg():
     try:
