@@ -1,6 +1,8 @@
 yt-dlp
 darkdetect
 win11toast
-customtkinter
+sv-ttk
+tksvg
 Pillow
 pyinstaller
+requests
