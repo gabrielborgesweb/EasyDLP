@@ -331,6 +331,7 @@ class EasyDLPApp:
                 ),
             )
 
+        cleanup_cache()
         self.apply_theme()
         self.load_icons()
         self.setup_styles()
