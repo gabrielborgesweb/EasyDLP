@@ -1,4 +1,4 @@
-# EasyDLP
+![EasyDLP app logo](logo.png)
 
 **EasyDLP** é um baixador de vídeos e áudios moderno, rápido e totalmente gratuito, construído em Python.
 
