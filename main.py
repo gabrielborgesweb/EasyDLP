@@ -341,6 +341,7 @@ class EasyDLPApp:
 
         self.setup_ui()
         self.load_settings()
+        self.load_history()
 
         threading.Thread(target=self.queue_processor, daemon=True).start()
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -740,6 +741,17 @@ class EasyDLPApp:
                     print("[DEBUG] Settings and window state loaded.")
             except Exception as e:
                 print(f"[ERROR] Load settings failed: {e}")
+
+    def load_history(self):
+        if os.path.exists(HISTORY_PATH):
+            try:
+                with open(HISTORY_PATH, "r") as f:
+                    history = json.load(f)
+                    for item in history:
+                        self.add_single_video(item, from_history=True)
+                print(f"[DEBUG] History loaded.")
+            except Exception as e:
+                print(f"[ERROR] Load history failed: {e}")
 
     def on_closing(self):
         print("[DEBUG] Closing. Saving history and window state.")
