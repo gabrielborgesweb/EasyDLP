@@ -320,6 +320,7 @@ class EasyDLPApp:
         self.root = root
         self.root.title("EasyDLP")
         self.root.geometry("1100x700")
+        self.root.minsize(1000, 600)
 
         # Define o ícone da janela
         icon_path = os.path.join(get_base_path(), "icon.ico")
