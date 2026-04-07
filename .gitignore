@@ -3,3 +3,6 @@ thumbnail_cache/
 CHANGES.md
 history.json
 userpref.json
+build/
+dist/
+*.spec
