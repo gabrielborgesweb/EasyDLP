@@ -321,6 +321,11 @@ class EasyDLPApp:
         self.root.title("EasyDLP")
         self.root.geometry("1100x700")
 
+        # Define o ícone da janela
+        icon_path = os.path.join(get_base_path(), "icon.ico")
+        if os.path.exists(icon_path):
+            self.root.iconbitmap(icon_path)
+
         self.has_ffmpeg = check_ffmpeg()
         if not self.has_ffmpeg:
             self.root.after(

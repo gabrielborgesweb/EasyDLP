@@ -55,7 +55,7 @@ Cansado de ferramentas de download de vídeo que parecem todas iguais, mas que e
 Se você deseja distribuir o app como um arquivo único para Windows, use o PyInstaller com o comando abaixo para garantir que todos os ícones e temas sejam incluídos corretamente:
 
 ```powershell
-pyinstaller --noconsole --onefile --name EasyDLP --add-data "*.svg;." --collect-all sv_ttk --collect-all tksvg main.py
+pyinstaller --noconfirm --onefile --windowed --icon "icon.ico" --add-data "icon.ico;." --add-data "*.svg;." --collect-all sv_ttk --collect-all tksvg --name EasyDLP main.py
 ```
 
 O executável será gerado na pasta `dist/`.
