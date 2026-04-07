@@ -1,39 +1,74 @@
 # EasyDLP
 
-Um baixador de vídeos simples usando Python, Tkinter e yt-dlp.
+**EasyDLP** é um baixador de vídeos e áudios moderno, rápido e totalmente gratuito, construído em Python.
 
-## Requisitos
+### 💡 O Propósito
 
-- Python 3.x
-- FFmpeg (necessário para conversão de áudio e junção de vídeo/áudio de alta qualidade)
+Cansado de ferramentas de download de vídeo que parecem todas iguais, mas que escondem funções básicas atrás de um **paywall** chato ou limitam a velocidade de download? O EasyDLP foi criado para resolver essa dor: uma interface limpa, sem anúncios e sem cobranças, aproveitando todo o poder do `yt-dlp`.
 
-## Como rodar
+---
 
-1. Instale as dependências:
+## ✨ Funcionalidades
+
+- 🎥 **Qualidade Máxima:** Suporta resoluções de até 4K (2160p) a 60fps.
+- 🎵 **Conversão de Áudio:** Extração direta para MP3 e WAV.
+- 📂 **Gestão de Fila:** Adicione múltiplos links e deixe o app trabalhar em segundo plano.
+- 🎞️ **Suporte a Playlists:** Detecta automaticamente playlists e permite escolher entre baixar o vídeo atual ou a lista completa.
+- 🎨 **Interface Moderna:** Tema escuro/claro automático baseado no sistema (usando `sv-ttk`).
+- 🔔 **Notificações:** Alertas nativos do Windows ao finalizar os downloads.
+- 💾 **Persistência:** Salva automaticamente seu histórico de downloads e preferências de pasta/formato.
+
+---
+
+## 🛠️ Requisitos do Sistema
+
+- **Python 3.10+** (para rodar via script)
+- **FFmpeg:** Essencial para unir trilhas de áudio/vídeo em alta qualidade e para conversão de MP3.
+  - _Certifique-se de que o `ffmpeg` esteja no seu PATH do sistema._
+
+---
+
+## 🚀 Como Executar (Desenvolvimento)
+
+1. Clone o repositório:
+
+   ```bash
+   git clone https://github.com/seu-usuario/EasyDLP.git
+   cd EasyDLP
+   ```
+
+2. Instale as dependências:
+
    ```bash
    pip install -r requirements.txt
    ```
 
-2. Execute o script:
+3. Execute o app:
    ```bash
    python main.py
    ```
 
-## Como criar o executável (EasyDLP.exe)
+---
 
-Para criar o arquivo `.exe` mencionado:
+## 📦 Como Gerar o Executável (.exe)
 
-1. Instale o PyInstaller:
-   ```bash
-   pip install pyinstaller
-   ```
+Se você deseja distribuir o app como um arquivo único para Windows, use o PyInstaller com o comando abaixo para garantir que todos os ícones e temas sejam incluídos corretamente:
 
-2. Gere o executável:
-   ```bash
-   pyinstaller --noconsole --onefile --name EasyDLP main.py
-   ```
+```powershell
+pyinstaller --noconsole --onefile --name EasyDLP --add-data "*.svg;." --collect-all sv_ttk --collect-all tksvg main.py
+```
 
-O arquivo `EasyDLP.exe` será criado na pasta `dist/`. Ao executá-lo, o arquivo `userpref.ini` será criado automaticamente na mesma pasta ao fechar o app.
+O executável será gerado na pasta `dist/`.
 
 ---
-**Nota:** Certifique-se de que o `ffmpeg` esteja no seu PATH do sistema para que as conversões de formato e downloads em alta qualidade funcionem corretamente.
+
+## 📝 Notas de Uso
+
+- O app cria uma pasta em `%APPDATA%/EasyDLP` para armazenar suas configurações (`userpref.json`), histórico e cache de miniaturas.
+- Se o `ffmpeg` não for detectado, o app exibirá um aviso, mas ainda permitirá downloads básicos em qualidades limitadas (onde o merge não é necessário).
+
+---
+
+Criado com ❤️ por [Gabriel Borges](https://github.com/gabrielborgesweb)
+
+Gerado através do [Gemini CLI](https://geminicli.com) (`gemini-3-flash-preview`)
