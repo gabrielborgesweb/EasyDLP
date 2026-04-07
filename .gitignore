@@ -1,0 +1,5 @@
+thumbnail_cache/
+*.bkp
+CHANGES.md
+history.json
+userpref.json
