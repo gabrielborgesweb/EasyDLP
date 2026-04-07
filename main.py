@@ -42,6 +42,7 @@ def get_base_path():
         return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.abspath(__file__))
 
+
 def get_data_path():
     app_name = "EasyDLP"
     if sys.platform == "win32":
@@ -54,6 +55,7 @@ def get_data_path():
         os.makedirs(path)
     return path
 
+
 DATA_DIR = get_data_path()
 CONFIG_PATH = os.path.join(DATA_DIR, "userpref.json")
 HISTORY_PATH = os.path.join(DATA_DIR, "history.json")
@@ -63,9 +65,10 @@ if not os.path.exists(CACHE_DIR):
     os.makedirs(CACHE_DIR)
     print(f"[DEBUG] Cache directory created: {CACHE_DIR}")
 
+
 def cleanup_cache():
     now = time.time()
-    retention = 72 * 3600 # 72 hours
+    retention = 72 * 3600  # 72 hours
     try:
         for f in os.listdir(CACHE_DIR):
             f_path = os.path.join(CACHE_DIR, f)
@@ -75,6 +78,7 @@ def cleanup_cache():
                     print(f"[DEBUG] Cache removed: {f}")
     except Exception as e:
         print(f"[ERROR] Cache cleanup failed: {e}")
+
 
 def check_ffmpeg():
     try:
@@ -722,31 +726,48 @@ class EasyDLPApp:
                     self.codec_var.set(d.get("codec", CODECS[0]))
                     self.dest_var.set(d.get("dest", self.dest_var.get()))
                     self.post_var.set(d.get("post_action", POST_ACTIONS[0]))
-                    print("[DEBUG] Settings loaded.")
-            except:
-                pass
-        if os.path.exists(HISTORY_PATH):
-            try:
-                with open(HISTORY_PATH, "r") as f:
-                    history = json.load(f)
-                    print(f"[DEBUG] Restoring {len(history)} items.")
-                    for i in history:
-                        self.add_single_video(i, from_history=True)
-            except:
-                pass
+
+                    # Restaurar geometria da janela
+                    geometry = d.get("window_geometry")
+                    if geometry:
+                        self.root.geometry(geometry)
+
+                    # Restaurar estado maximizado
+                    if d.get("window_maximized", False):
+                        self.root.state("zoomed")
+
+                    print("[DEBUG] Settings and window state loaded.")
+            except Exception as e:
+                print(f"[ERROR] Load settings failed: {e}")
 
     def on_closing(self):
-        print("[DEBUG] Closing. Saving history.")
+        print("[DEBUG] Closing. Saving history and window state.")
+
+        # Captura se a janela está maximizada
+        is_maximized = self.root.state() == "zoomed"
+
+        # Se estiver maximizada, queremos salvar a geometria de quando ela estava "normal"
+        # para que ao desmaximizar ela não vire um quadradinho minúsculo.
+        if is_maximized:
+            # No Windows, 'wm geometry' retorna o tamanho original antes do zoom
+            geometry = self.root.wm_geometry()
+        else:
+            geometry = self.root.geometry()
+
         settings = {
             "format": self.format_var.get(),
             "quality": self.quality_var.get(),
             "codec": self.codec_var.get(),
             "dest": self.dest_var.get(),
             "post_action": self.post_var.get(),
+            "window_geometry": geometry,
+            "window_maximized": is_maximized,
         }
+
         try:
             with open(CONFIG_PATH, "w") as f:
                 json.dump(settings, f)
+
             history = []
             for c in self.queue:
                 if c.winfo_exists():
@@ -754,10 +775,12 @@ class EasyDLPApp:
                     item["status"] = c.status
                     item["file_path"] = c.file_path
                     history.append(item)
+
             with open(HISTORY_PATH, "w") as f:
                 json.dump(history, f)
-        except:
-            pass
+        except Exception as e:
+            print(f"[ERROR] Failed to save: {e}")
+
         self.root.destroy()
 
 
@@ -765,31 +788,72 @@ class PlaylistPopup(tk.Toplevel):
     def __init__(self, parent, title="Playlist Detectada"):
         super().__init__(parent)
         self.title(title)
-        self.geometry("400x180")
+
+        # Som de alerta do Windows
+        winsound.MessageBeep(winsound.MB_ICONASTERISK)
+
+        self.geometry("450x220")
         self.resizable(False, False)
-        self.result = None
+        self.result = "cancel"
+
+        # Configurações de Foco e Interação
+        self.transient(parent)  # Mantém o popup acima da janela principal
+        self.grab_set()  # Bloqueia interação com a janela principal (Modal)
+        self.focus_force()  # Força o foco do SO para esta janela
+
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+
+        main_container = ttk.Frame(self, padding="20 30 20 20")
+        main_container.grid(row=0, column=0, sticky="nsew")
+        main_container.columnconfigure(0, weight=1)
+
         ttk.Label(
-            self,
-            text="Este link contém uma playlist.\nO que deseja fazer?",
-            font=("Segoe UI", 11),
+            main_container,
+            text="Este link contém uma playlist.",
+            font=("Segoe UI", 12, "bold"),
             justify="center",
-        ).pack(pady=20)
-        btn_f = ttk.Frame(self)
-        btn_f.pack(pady=10)
-        ttk.Button(
+        ).grid(row=0, column=0, pady=(0, 5))
+
+        ttk.Label(
+            main_container,
+            text="O que você deseja fazer?",
+            font=("Segoe UI", 10),
+            justify="center",
+        ).grid(row=1, column=0, pady=(0, 25))
+
+        btn_f = ttk.Frame(main_container)
+        btn_f.grid(row=2, column=0)
+
+        # Botão de Destaque
+        self.btn_all = ttk.Button(
             btn_f,
             text="Playlist Completa",
             style="Accent.TButton",
             command=self.on_playlist,
-        ).pack(side="left", padx=10)
-        ttk.Button(btn_f, text="Apenas um Vídeo", command=self.on_single).pack(
-            side="left", padx=10
+            width=18,
         )
-        ttk.Button(btn_f, text="Cancelar", command=self.on_cancel).pack(
-            side="left", padx=10
-        )
-        self.transient(parent)
-        self.grab_set()
+        self.btn_all.pack(side="left", padx=5)
+
+        ttk.Button(
+            btn_f, text="Apenas este Vídeo", command=self.on_single, width=18
+        ).pack(side="left", padx=5)
+
+        ttk.Button(
+            main_container,
+            text="Cancelar",
+            command=self.on_cancel,
+        ).grid(row=3, column=0, pady=(15, 0))
+
+        # Centralização em relação ao app principal
+        self.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width() // 2) - (self.winfo_width() // 2)
+        y = parent.winfo_y() + (parent.winfo_height() // 2) - (self.winfo_height() // 2)
+        self.geometry(f"+{x}+{y}")
+
+        # Coloca o foco no botão principal após 100ms
+        self.after(100, lambda: self.btn_all.focus_set())
+
         self.protocol("WM_DELETE_WINDOW", self.on_cancel)
         self.wait_window()
 
