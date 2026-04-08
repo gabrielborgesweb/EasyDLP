@@ -33,7 +33,7 @@ Cansado de ferramentas de download de vídeo que parecem todas iguais, mas que e
 1. Clone o repositório:
 
    ```bash
-   git clone https://github.com/seu-usuario/EasyDLP.git
+   git clone https://github.com/gabrielborgesweb/EasyDLP.git
    cd EasyDLP
    ```
 
